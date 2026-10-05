@@ -1,4 +1,4 @@
-const API_URL = "http://localhost:3030";
+const API_URL = "https://elegia-forum.onrender.com";
 
 const ALLOWED_IMAGE_TYPES = [
     "image/jpeg",
