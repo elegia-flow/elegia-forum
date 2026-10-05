@@ -3,16 +3,17 @@ import path from "path";
 import fs from "fs";
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseUrl = process.env.SUPABASE_URL || "https://supabase.co";
+const supabaseServiceKey =
+    process.env.SUPABASE_SERVICE_ROLE_KEY || "dummy-key-for-build";
 
-if (!supabaseUrl || !supabaseServiceKey) {
+if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     console.error(
-        "Warning: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY environment variables are not set!"
+        "Warning: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY environment variables are not set in process.env!"
     );
 }
 
-const supabase = createClient(supabaseUrl || "", supabaseServiceKey || "");
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 const ALLOWED_MIME = new Set([
     "image/jpeg",
