@@ -1,4 +1,8 @@
-import { uploadPostImage, deleteUploadFile } from "../middlewares/upload";
+import {
+    uploadPostImage,
+    deleteUploadFile,
+    uploadToSupabase
+} from "../middlewares/upload";
 import { Router, Request, Response, NextFunction } from "express";
 import { dbConnect as db } from "../pool";
 import authMiddleware from "../middlewares/authMiddleware";
@@ -70,7 +74,7 @@ router.post(
 
             let image_url: string | null = null;
             if (req.file) {
-                image_url = `/uploads/${req.file.filename}`;
+                image_url = await uploadToSupabase(req.file);
             } else if (req.body.image_url) {
                 image_url = String(req.body.image_url).trim() || null;
             }
@@ -109,7 +113,7 @@ router.patch(
             let updateImage = false;
 
             if (req.file) {
-                image_url = `/uploads/${req.file.filename}`;
+                image_url = await uploadToSupabase(req.file);
                 updateImage = true;
             } else if (req.body.image_url !== undefined) {
                 image_url = String(req.body.image_url).trim() || null;
@@ -158,7 +162,7 @@ router.patch(
             }
 
             if (updateImage && oldImage && oldImage !== image_url) {
-                deleteUploadFile(oldImage);
+                await deleteUploadFile(oldImage);
             }
 
             return res.status(200).json(result.rows[0]);
@@ -204,9 +208,9 @@ router.delete("/posts/:id", authMiddleware, async (req, res, next) => {
             });
         }
 
-        deleteUploadFile(oldImage);
+        await deleteUploadFile(oldImage);
         for (const row of commentImgs.rows) {
-            deleteUploadFile(row.image_url);
+            await deleteUploadFile(row.image_url);
         }
 
         return res.status(200).json(result.rows[0]);

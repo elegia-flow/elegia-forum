@@ -1,6 +1,18 @@
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import { createClient } from "@supabase/supabase-js";
+
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseServiceKey) {
+    console.error(
+        "Warning: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY environment variables are not set!"
+    );
+}
+
+const supabase = createClient(supabaseUrl || "", supabaseServiceKey || "");
 
 const ALLOWED_MIME = new Set([
     "image/jpeg",
@@ -9,22 +21,7 @@ const ALLOWED_MIME = new Set([
     "image/gif"
 ]);
 
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, "uploads/");
-    },
-    filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-        const ext = path.extname(file.originalname).toLowerCase() || ".jpg";
-
-        let prefix = "file-";
-        if (file.fieldname === "avatar") prefix = "avatar-";
-        else if (file.fieldname === "image") prefix = "post-";
-        else if (file.fieldname === "comment_image") prefix = "comment-";
-
-        cb(null, prefix + uniqueSuffix + ext);
-    }
-});
+const storage = multer.memoryStorage();
 
 const imageFilter: multer.Options["fileFilter"] = (req, file, cb) => {
     if (ALLOWED_MIME.has(file.mimetype)) {
@@ -52,14 +49,50 @@ export const uploadCommentImage = multer({
     fileFilter: imageFilter
 }).single("comment_image");
 
-export function deleteUploadFile(imageUrl: string | null | undefined) {
-    if (!imageUrl) return;
-    if (!imageUrl.startsWith("/uploads/")) return;
+export async function uploadToSupabase(
+    file: Express.Multer.File
+): Promise<string> {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    const ext = path.extname(file.originalname).toLowerCase() || ".jpg";
 
-    const filePath = path.join(process.cwd(), imageUrl.replace(/^\//, ""));
-    fs.unlink(filePath, (err) => {
-        if (err && (err as NodeJS.ErrnoException).code !== "ENOENT") {
-            console.error("Failed to delete the file:", filePath, err.message);
-        }
-    });
+    let prefix = "file-";
+    if (file.fieldname === "avatar") prefix = "avatar-";
+    else if (file.fieldname === "image") prefix = "post-";
+    else if (file.fieldname === "comment_image") prefix = "comment-";
+
+    const fileName = prefix + uniqueSuffix + ext;
+
+    const { data, error } = await supabase.storage
+        .from("uploads")
+        .upload(fileName, file.buffer, {
+            contentType: file.mimetype,
+            upsert: true
+        });
+
+    if (error) {
+        throw new Error("Supabase Storage upload error: " + error.message);
+    }
+
+    const { data: publicUrlData } = supabase.storage
+        .from("uploads")
+        .getPublicUrl(fileName);
+
+    return publicUrlData.publicUrl;
+}
+
+export async function deleteUploadFile(imageUrl: string | null | undefined) {
+    if (!imageUrl) return;
+
+    const fileName = imageUrl.split("/").pop();
+    if (!fileName) return;
+
+    const { error } = await supabase.storage.from("uploads").remove([fileName]);
+
+    if (error) {
+        console.error(
+            "Failed to delete the file from Supabase Storage:",
+            fileName,
+            error.message
+        );
+    }
 }

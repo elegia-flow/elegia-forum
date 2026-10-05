@@ -1,7 +1,11 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { dbConnect as db } from "../pool";
 import authMiddleware from "../middlewares/authMiddleware";
-import { uploadAvatar, deleteUploadFile } from "../middlewares/upload";
+import {
+    uploadAvatar,
+    deleteUploadFile,
+    uploadToSupabase
+} from "../middlewares/upload";
 
 const router = Router();
 
@@ -61,7 +65,7 @@ router.post("/avatar", authMiddleware, uploadAvatar, async (req, res, next) => {
         );
         const oldPath = old.rows[0]?.avatar_url as string | null;
 
-        const filePath = `/uploads/${file.filename}`;
+        const filePath = await uploadToSupabase(file);
 
         const result = await db.query(
             `
@@ -74,7 +78,7 @@ router.post("/avatar", authMiddleware, uploadAvatar, async (req, res, next) => {
         );
 
         if (oldPath && oldPath !== filePath) {
-            deleteUploadFile(oldPath);
+            await deleteUploadFile(oldPath);
         }
 
         return res.status(200).json(result.rows[0]);
@@ -103,7 +107,7 @@ router.delete("/avatar", authMiddleware, async (req, res, next) => {
             [userId]
         );
 
-        deleteUploadFile(oldPath);
+        await deleteUploadFile(oldPath);
 
         return res.status(200).json(result.rows[0]);
     } catch (err) {
