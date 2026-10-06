@@ -64,7 +64,7 @@ export async function uploadToSupabase(
     const fileName = prefix + uniqueSuffix + ext;
 
     const { data, error } = await supabase.storage
-        .from("UPLOADS")
+        .from("uploads")
         .upload(fileName, file.buffer, {
             contentType: file.mimetype,
             upsert: true
@@ -75,7 +75,7 @@ export async function uploadToSupabase(
     }
 
     const { data: publicUrlData } = supabase.storage
-        .from("UPLOADS")
+        .from("uploads")
         .getPublicUrl(fileName);
 
     return publicUrlData.publicUrl;
@@ -87,7 +87,7 @@ export async function deleteUploadFile(imageUrl: string | null | undefined) {
     const fileName = imageUrl.split("/").pop();
     if (!fileName) return;
 
-    const { error } = await supabase.storage.from("UPLOADS").remove([fileName]);
+    const { error } = await supabase.storage.from("uploads").remove([fileName]);
 
     if (error) {
         console.error(
